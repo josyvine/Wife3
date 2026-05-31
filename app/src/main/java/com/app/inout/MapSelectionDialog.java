@@ -88,6 +88,7 @@ public class MapSelectionDialog extends DialogFragment {
         ImageButton btnClose = view.findViewById(R.id.btn_close_map);
         ImageButton btnToggleSearch = view.findViewById(R.id.btn_toggle_search);
         Button btnSearchGo = view.findViewById(R.id.btn_map_search_go);
+        ImageButton btnMyLocation = view.findViewById(R.id.btn_my_location);
         ImageButton btnZoomIn = view.findViewById(R.id.btn_zoom_in);
         ImageButton btnZoomOut = view.findViewById(R.id.btn_zoom_out);
         Button btnSave = view.findViewById(R.id.btn_confirm_selection);
@@ -121,6 +122,9 @@ public class MapSelectionDialog extends DialogFragment {
             }
             return false;
         });
+
+        // New: GPS recenter button action
+        btnMyLocation.setOnClickListener(v -> centerOnCurrentLocation());
 
         // Manual zoom controls
         btnZoomIn.setOnClickListener(v -> mapView.getController().zoomIn());
