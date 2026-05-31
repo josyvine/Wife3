@@ -71,7 +71,10 @@ public class AdminSetupActivity extends AppCompatActivity {
 
     private void openFilePicker() {
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("application/json"); // Filter for JSON files
+        // Broaden MIME selection range to ensure android file picker can highlight JSON extensions
+        intent.setType("*/*"); 
+        String[] mimeTypes = {"application/json", "text/plain", "application/octet-stream"};
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         filePickerLauncher.launch(intent);
     }
@@ -120,13 +123,37 @@ public class AdminSetupActivity extends AppCompatActivity {
             return;
         }
 
-        if (jsonContent == null || parsedProjectId == null) {
-            Toast.makeText(this, "Please upload a valid google-services.json file", Toast.LENGTH_SHORT).show();
+        String pastedJson = binding.etPasteJson.getText().toString().trim();
+        String finalJson = null;
+        String finalProjectId = null;
+
+        // Verify pasted configuration first
+        if (!TextUtils.isEmpty(pastedJson)) {
+            try {
+                JSONObject root = new JSONObject(pastedJson);
+                JSONObject projectInfo = root.getJSONObject("project_info");
+                finalProjectId = projectInfo.getString("project_id");
+                finalJson = pastedJson;
+            } catch (Exception e) {
+                Log.e(TAG, "Error parsing pasted JSON content", e);
+                Toast.makeText(this, "Invalid Pasted JSON File Structure", Toast.LENGTH_LONG).show();
+                return;
+            }
+        } 
+        // Fall back to check if file upload configuration exists
+        else if (jsonContent != null && parsedProjectId != null) {
+            finalJson = jsonContent;
+            finalProjectId = parsedProjectId;
+        }
+
+        // If neither option yielded a valid configuration, alert the user
+        if (finalJson == null || finalProjectId == null) {
+            Toast.makeText(this, "Please upload a google-services.json file or paste its content", Toast.LENGTH_LONG).show();
             return;
         }
 
         // 1. Configure Firebase dynamically using the utility
-        boolean success = FirebaseManager.setConfiguration(this, jsonContent, companyName, parsedProjectId);
+        boolean success = FirebaseManager.setConfiguration(this, finalJson, companyName, finalProjectId);
 
         if (success) {
             // 2. Initialize the Firebase Instance immediately
