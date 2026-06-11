@@ -46,12 +46,21 @@ public class PatternDrawingModel {
     public static class CanvasPoint {
         private float x;
         private float y;
+        private long timestamp; // Added to support temporal tracking and visual stabilization
 
         public CanvasPoint() {}
 
         public CanvasPoint(float x, float y) {
             this.x = x;
             this.y = y;
+            this.timestamp = 0L; // Fallback default
+        }
+
+        // Overloaded constructor to support exact timestamp snapping
+        public CanvasPoint(float x, float y, long timestamp) {
+            this.x = x;
+            this.y = y;
+            this.timestamp = timestamp;
         }
 
         public float getX() {
@@ -68,6 +77,14 @@ public class PatternDrawingModel {
 
         public void setY(float y) {
             this.y = y;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp(long timestamp) {
+            this.timestamp = timestamp;
         }
     }
 
