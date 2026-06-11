@@ -52,7 +52,13 @@ public class PatternJsonParser {
     private static String cleanJsonString(String raw) {
         String cleaned = raw.trim();
 
-        // Strip ```json code block wrapper
+        // Step 1: Defensively strip "PATTERN:" prefix and any preamble before it
+        if (cleaned.contains("PATTERN:")) {
+            int patternIndex = cleaned.indexOf("PATTERN:");
+            cleaned = cleaned.substring(patternIndex + 8).trim();
+        }
+
+        // Step 2: Strip ```json code block wrapper
         if (cleaned.contains("```json")) {
             int startIndex = cleaned.indexOf("```json") + 7;
             int endIndex = cleaned.lastIndexOf("```");
@@ -72,7 +78,7 @@ public class PatternJsonParser {
             }
         }
 
-        // Isolate content between the first '{' and the last '}' to strip surrounding conversational text
+        // Step 3: Isolate content between the first '{' and the last '}' to strip surrounding conversational text
         int firstBrace = cleaned.indexOf('{');
         int lastBrace = cleaned.lastIndexOf('}');
         if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
