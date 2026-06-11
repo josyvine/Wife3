@@ -583,10 +583,11 @@ public class CandlestickChartView extends View {
             for (ChartPattern pattern : mActivePatternResponse.getPatterns()) {
                 List<PatternDrawingModel.CanvasPoint> translatedPoints = new ArrayList<>();
                 for (ChartPattern.Point pt : pattern.getPoints()) {
-                    int absoluteIndex = absoluteStartIndex + pt.getIndex();
-                    float physicalX = (absoluteIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
+                    // Resolved index based on unique timestamp (Temporal Stabilization)
+                    int resolvedIndex = getIndexByTimestamp(pt.getTimestamp(), pt.getIndex(), absoluteStartIndex);
+                    float physicalX = (resolvedIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
                     float physicalY = getPriceY(pt.getPrice(), minPrice, maxPrice, height);
-                    translatedPoints.add(new PatternDrawingModel.CanvasPoint(physicalX, physicalY));
+                    translatedPoints.add(new PatternDrawingModel.CanvasPoint(physicalX, physicalY, pt.getTimestamp()));
                 }
 
                 float physicalTargetY = -1;
@@ -603,20 +604,27 @@ public class CandlestickChartView extends View {
                 List<PatternDrawingModel.CanvasPoint> translatedNeckline = new ArrayList<>();
                 if (pattern.getNecklinePoints() != null) {
                     for (ChartPattern.Point pt : pattern.getNecklinePoints()) {
-                        int absoluteIndex = absoluteStartIndex + pt.getIndex();
-                        float physicalX = (absoluteIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
+                        int resolvedIndex = getIndexByTimestamp(pt.getTimestamp(), pt.getIndex(), absoluteStartIndex);
+                        float physicalX = (resolvedIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
                         float physicalY = getPriceY(pt.getPrice(), minPrice, maxPrice, height);
-                        translatedNeckline.add(new PatternDrawingModel.CanvasPoint(physicalX, physicalY));
+                        translatedNeckline.add(new PatternDrawingModel.CanvasPoint(physicalX, physicalY, pt.getTimestamp()));
                     }
                 }
 
                 // Map Breakout Point if confirmed
                 float breakoutX = -1;
                 float breakoutY = -1;
-                if (pattern.getBreakoutIndex() >= 0) {
-                    int absoluteIndex = absoluteStartIndex + pattern.getBreakoutIndex();
-                    breakoutX = (absoluteIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
-                    breakoutY = getPriceY(pattern.getBreakoutPrice(), minPrice, maxPrice, height);
+                int resolvedBreakoutIndex = -1;
+                if (pattern.getBreakoutTimestamp() > 0) {
+                    resolvedBreakoutIndex = getIndexByTimestamp(pattern.getBreakoutTimestamp(), pattern.getBreakoutIndex(), absoluteStartIndex);
+                } else if (pattern.getBreakoutIndex() >= 0) {
+                    resolvedBreakoutIndex = absoluteStartIndex + pattern.getBreakoutIndex();
+                }
+
+                if (resolvedBreakoutIndex >= 0 && resolvedBreakoutIndex < mCandles.size()) {
+                    breakoutX = (resolvedBreakoutIndex * candleWidth) + (candleWidth / 2f) - mOffsetX;
+                    double relativePrice = (pattern.getBreakoutPrice() - minPrice) / (maxPrice - minPrice);
+                    breakoutY = (float) (height - (relativePrice * height));
                 }
 
                 // Map Retest Zone bounds
@@ -663,6 +671,20 @@ public class CandlestickChartView extends View {
                 PatternRenderer.drawPattern(canvas, dynamicModel);
             }
         }
+    }
+
+    /**
+     * Helper to lookup exact candlestick index by unique timestamp (Temporal Stabilization)
+     */
+    private int getIndexByTimestamp(long timestamp, int fallbackIndex, int absoluteStartIndex) {
+        if (timestamp > 0 && mCandles != null) {
+            for (int i = 0; i < mCandles.size(); i++) {
+                if (mCandles.get(i).timestamp == timestamp) {
+                    return i;
+                }
+            }
+        }
+        return absoluteStartIndex + fallbackIndex; // Fallback to original relative calculation
     }
 
     private float getPriceY(double price, double minPrice, double maxPrice, int canvasHeight) {
