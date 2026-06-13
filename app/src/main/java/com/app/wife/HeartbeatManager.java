@@ -15,7 +15,7 @@ public class HeartbeatManager {
     private static volatile HeartbeatManager instance;
 
     private final Context context;
-    private final ScheduledExecutorService scheduler;
+    private ScheduledExecutorService scheduler;
     private final Handler mainHandler;
 
     private ScheduledFuture<?> sendTask;
@@ -46,6 +46,11 @@ public class HeartbeatManager {
         isMonitoring = true;
         lastHeartbeatReceived = System.currentTimeMillis();
 
+        // Dynamically re-create the scheduler if it was previously shut down, closed, or terminated
+        if (scheduler == null || scheduler.isShutdown() || scheduler.isTerminated()) {
+            scheduler = new ScheduledThreadPoolExecutor(1);
+        }
+
         // Send heartbeat packet every 5 seconds
         sendTask = scheduler.scheduleAtFixedRate(this::sendHeartbeat, 0, 5, TimeUnit.SECONDS);
 
@@ -57,7 +62,7 @@ public class HeartbeatManager {
     public synchronized void stopMonitoring() {
         isMonitoring = false;
 
-        // Cancel the individual running tasks instead of shutting down the scheduler
+        // Cancel the individual running tasks
         if (sendTask != null) {
             sendTask.cancel(true);
             sendTask = null;
@@ -65,6 +70,12 @@ public class HeartbeatManager {
         if (checkTask != null) {
             checkTask.cancel(true);
             checkTask = null;
+        }
+
+        // Cleanly shut down the scheduler to release system resources and prevent task leaks
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
         }
 
         Log.d(TAG, "Heartbeat monitoring stopped.");
