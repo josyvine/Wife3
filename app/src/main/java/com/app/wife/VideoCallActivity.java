@@ -2,8 +2,11 @@ package com.wife.app;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,9 +32,22 @@ public class VideoCallActivity extends AppCompatActivity implements
     // Track which stream is currently enlarged (false: peer full screen, true: local full screen)
     private boolean isLocalVideoFull = false;
 
+    private MediaPlayer ringtonePlayer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Configure window flags to wake the screen backlight, keep it on, and bypass locks
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED 
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+        }
+
         binding = ActivityVideoCallBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -59,6 +75,42 @@ public class VideoCallActivity extends AppCompatActivity implements
 
         setupClickListeners();
         configureCallingState();
+
+        // Start playing ringtone if it's an incoming call
+        if (isInbound) {
+            startRingtone();
+        }
+    }
+
+    private void startRingtone() {
+        WifeLogger.log(TAG, "Initializing incoming video call ringtone playback.");
+        try {
+            ringtonePlayer = MediaPlayer.create(this, R.raw.wife_ringtone);
+            if (ringtonePlayer != null) {
+                ringtonePlayer.setLooping(true);
+                ringtonePlayer.start();
+                WifeLogger.log(TAG, "Branded ringtone is now playing.");
+            } else {
+                WifeLogger.log(TAG, "Failed creating MediaPlayer instance for wife_ringtone.");
+            }
+        } catch (Exception e) {
+            WifeLogger.log(TAG, "Error playing custom branded ringtone: " + e.getMessage(), e);
+        }
+    }
+
+    private void stopRingtone() {
+        if (ringtonePlayer != null) {
+            try {
+                WifeLogger.log(TAG, "Stopping and releasing local ringtone MediaPlayer.");
+                if (ringtonePlayer.isPlaying()) {
+                    ringtonePlayer.stop();
+                }
+                ringtonePlayer.release();
+            } catch (Exception e) {
+                WifeLogger.log(TAG, "Error cleanly releasing ringtone player: " + e.getMessage(), e);
+            }
+            ringtonePlayer = null;
+        }
     }
 
     private void setupClickListeners() {
@@ -104,6 +156,7 @@ public class VideoCallActivity extends AppCompatActivity implements
     }
 
     private void acceptCall() {
+        stopRingtone();
         binding.fabAcceptVideo.setVisibility(View.GONE);
         binding.tvVideoCallState.setText("Opening Video channel...");
 
@@ -122,6 +175,7 @@ public class VideoCallActivity extends AppCompatActivity implements
     }
 
     private void declineOrEndCall() {
+        stopRingtone();
         WifeLogger.log(TAG, "declineOrEndCall() invoked. Processing signal termination...");
         if (isInbound && binding.fabAcceptVideo.getVisibility() == View.VISIBLE) {
             WifeLogger.log(TAG, "Call declined before connection. Dispatching REJECT signal to: " + peerIp);
@@ -144,6 +198,7 @@ public class VideoCallActivity extends AppCompatActivity implements
 
     private void hangUp() {
         WifeLogger.log(TAG, "hangUp() invoked. Stopping services and releasing active calling managers.");
+        stopRingtone();
         stopCallService();
 
         // Parallel audio: Terminate the parallel voice pipeline
@@ -185,6 +240,7 @@ public class VideoCallActivity extends AppCompatActivity implements
         runOnUiThread(() -> {
             switch (action) {
                 case Constants.SIGNAL_VIDEO_ACCEPT:
+                    stopRingtone();
                     WifeLogger.log(TAG, "Signal matched: ACCEPT. Starting outbound audio/video stream parameters.");
                     binding.tvVideoCallState.setText("Streaming Active");
                     
@@ -196,11 +252,13 @@ public class VideoCallActivity extends AppCompatActivity implements
                     startCallService();
                     break;
                 case Constants.SIGNAL_VIDEO_REJECT:
+                    stopRingtone();
                     WifeLogger.log(TAG, "Signal matched: REJECT. Teardown active activity context.");
                     Toast.makeText(this, "Video invitation rejected.", Toast.LENGTH_SHORT).show();
                     hangUp();
                     break;
                 case Constants.SIGNAL_VIDEO_END:
+                    stopRingtone();
                     WifeLogger.log(TAG, "Signal matched: END. Teardown active activity context.");
                     Toast.makeText(this, "Video channel terminated.", Toast.LENGTH_SHORT).show();
                     hangUp();
@@ -251,7 +309,8 @@ public class VideoCallActivity extends AppCompatActivity implements
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        WifeLogger.log(TAG, "onDestroy() invoked. Cleaning up static LocalFrameListener handles.");
+        WifeLogger.log(TAG, "onDestroy() invoked. Cleaning up static LocalFrameListener handles and releasing media players.");
+        stopRingtone();
         VideoCaptureManager.setLocalFrameListener(null);
     }
 
