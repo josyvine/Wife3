@@ -78,7 +78,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/ic_menu_rotate"
+            android:src="@drawable/flip_camera_android_24px"
             app:backgroundTint="#AA121212"
             app:tint="#FFFFFF"
             android:contentDescription="Rotate Camera" />
@@ -88,7 +88,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/btn_star_big_on"
+            android:src="@drawable/video_call_24px"
             app:backgroundTint="#4CAF50"
             app:tint="#FFFFFF"
             android:visibility="gone"
@@ -99,7 +99,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:src="@drawable/call_end_24px"
             app:backgroundTint="#F44336"
             app:tint="#FFFFFF"
             android:contentDescription="Decline Video Call" />
