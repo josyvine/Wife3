@@ -202,41 +202,62 @@
                             </LinearLayout>
                         </com.google.android.material.card.MaterialCardView>
 
-                        <!-- Secure Chat Card -->
-                        <com.google.android.material.card.MaterialCardView
-                            android:id="@+id/btnTextChat"
-                            android:layout_width="74dp"
-                            android:layout_height="66dp"
-                            android:layout_margin="2dp"
-                            app:cardCornerRadius="12dp"
-                            app:cardElevation="0dp"
-                            app:strokeWidth="0dp"
-                            app:cardBackgroundColor="@color/editorial_background"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:foreground="?android:attr/selectableItemBackground">
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:orientation="vertical"
+                        <!-- Secure Chat Container with Overlaid Badge -->
+                        <FrameLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_margin="2dp">
+
+                            <com.google.android.material.card.MaterialCardView
+                                android:id="@+id/btnTextChat"
+                                android:layout_width="74dp"
+                                android:layout_height="66dp"
+                                app:cardCornerRadius="12dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp"
+                                app:cardBackgroundColor="@color/editorial_background"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:foreground="?android:attr/selectableItemBackground">
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:orientation="vertical"
+                                    android:gravity="center"
+                                    android:padding="4dp">
+                                    <ImageView
+                                        android:layout_width="20dp"
+                                        android:layout_height="20dp"
+                                        android:src="@drawable/shield_24px"
+                                        app:tint="@color/editorial_accent" />
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="2dp"
+                                        android:text="Secure Chat"
+                                        android:textSize="9sp"
+                                        android:textColor="@color/editorial_primary_dark"
+                                        android:textStyle="bold"
+                                        android:gravity="center" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
+
+                            <!-- Circular Notification Badge -->
+                            <TextView
+                                android:id="@+id/tvUnreadBadge"
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_gravity="top|end"
+                                android:layout_margin="4dp"
+                                android:background="@android:drawable/presence_online"
+                                android:backgroundTint="#F44336"
                                 android:gravity="center"
-                                android:padding="4dp">
-                                <ImageView
-                                    android:layout_width="20dp"
-                                    android:layout_height="20dp"
-                                    android:src="@drawable/shield_24px"
-                                    app:tint="@color/editorial_accent" />
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
-                                    android:text="Secure Chat"
-                                    android:textSize="9sp"
-                                    android:textColor="@color/editorial_primary_dark"
-                                    android:textStyle="bold"
-                                    android:gravity="center" />
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+                                android:text="1"
+                                android:textColor="#FFFFFF"
+                                android:textSize="9sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
 
                         <!-- Voice Session Call Card -->
                         <com.google.android.material.card.MaterialCardView
@@ -337,7 +358,6 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:layout_marginTop="2dp"
                                     android:text="Transfer Files"
                                     android:textSize="9sp"
                                     android:textColor="@color/editorial_primary_dark"
@@ -367,15 +387,54 @@
         android:fitsSystemWindows="true"
         android:padding="24dp">
 
-        <!-- Drawer Header -->
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Drawer Header containing Profile Photo and Name -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Wife Console"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="@color/editorial_primary_dark"
-            android:layout_marginBottom="4dp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/editorial_border"
+                app:strokeWidth="1dp">
+
+                <ImageView
+                    android:id="@+id/ivDrawerProfilePhoto"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@android:drawable/sym_def_app_icon"
+                    android:contentDescription="Drawer Profile Image" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="14dp">
+
+                <TextView
+                    android:id="@+id/tvDrawerProfileName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Wife Console"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/editorial_primary_dark" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="P2P Signature"
+                    android:textSize="11sp"
+                    android:textColor="@color/editorial_text_secondary" />
+            </LinearLayout>
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
