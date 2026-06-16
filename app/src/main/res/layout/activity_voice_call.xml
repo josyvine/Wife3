@@ -44,16 +44,29 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvVoiceCallState" />
 
-    <ImageView
-        android:id="@+id/ivVoiceAvatar"
+    <!-- Circular Profile Avatar Wrapper Frame -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardVoiceAvatar"
         android:layout_width="160dp"
         android:layout_height="160dp"
-        android:src="@android:drawable/sym_def_app_icon"
-        android:contentDescription="Peer Avatar"
+        app:cardCornerRadius="80dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#33FFFFFF"
+        app:strokeWidth="1dp"
+        app:cardBackgroundColor="#222222"
         app:layout_constraintBottom_toTopOf="@id/layoutVoiceControl"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvVoiceDuration" />
+        app:layout_constraintTop_toBottomOf="@id/tvVoiceDuration">
+
+        <ImageView
+            android:id="@+id/ivVoiceAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/sym_def_app_icon"
+            android:contentDescription="Peer Avatar" />
+    </com.google.android.material.card.MaterialCardView>
 
     <!-- Control Buttons Group -->
     <LinearLayout
@@ -70,7 +83,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/ic_btn_speak_now"
+            android:src="@drawable/mic_24px"
             app:backgroundTint="#2C2C2C"
             app:tint="#FFFFFF"
             android:contentDescription="Mute Voice" />
@@ -80,7 +93,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/btn_star_big_on"
+            android:src="@drawable/call_24px"
             app:backgroundTint="#4CAF50"
             app:tint="#FFFFFF"
             android:visibility="gone"
@@ -91,7 +104,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:src="@drawable/call_end_24px"
             app:backgroundTint="#F44336"
             app:tint="#FFFFFF"
             android:contentDescription="Decline Call" />
@@ -101,7 +114,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="12dp"
-            android:src="@android:drawable/ic_lock_silent_mode_off"
+            android:src="@drawable/volume_up_24px"
             app:backgroundTint="#2C2C2C"
             app:tint="#FFFFFF"
             android:contentDescription="Speaker Status" />
