@@ -23,6 +23,16 @@
             android:paddingHorizontal="14dp"
             android:paddingVertical="8dp">
 
+            <!-- Memory-Safe Standard Sent Media Preview Thumbnail -->
+            <ImageView
+                android:id="@+id/ivMessageImage"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:layout_marginBottom="8dp"
+                android:scaleType="centerCrop"
+                android:visibility="gone"
+                android:contentDescription="Sent media preview" />
+
             <TextView
                 android:id="@+id/tvMessageText"
                 android:layout_width="wrap_content"
