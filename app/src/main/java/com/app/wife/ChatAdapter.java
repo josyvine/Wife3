@@ -3,7 +3,11 @@ package com.wife.app;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,6 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
@@ -31,6 +36,11 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private final List<MessageEntity> messages;
     private final String selfDeviceId;
+
+    // Inline Audio Playback variables
+    private MediaPlayer mediaPlayer;
+    private String currentlyPlayingPath;
+    private TextView currentlyPlayingTextView;
 
     public ChatAdapter(Context context, List<MessageEntity> messages) {
         this.messages = messages;
@@ -85,41 +95,90 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
 
+        final String cleanFilename = getCleanFileName(filename);
+        final File localFile = getLocalFile(filename);
+
         if (holder instanceof SentViewHolder) {
             SentViewHolder h = (SentViewHolder) holder;
             if (isAttachment) {
+                h.itemView.setOnClickListener(null); // Clear previous item click
+                
+                // Show standard preview block and clear text
                 if (rawText.startsWith("[FILE]:")) {
-                    h.tvText.setText("📁 Document: " + filename + fileSize);
+                    h.tvText.setText("📁 Document: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[IMAGE]:")) {
-                    h.tvText.setText("📷 Image: " + filename + fileSize);
+                    h.tvText.setText("📷 Image: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[VIDEO]:")) {
-                    h.tvText.setText("🎥 Video: " + filename + fileSize);
+                    h.tvText.setText("🎥 Video: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[AUDIO]:")) {
-                    h.tvText.setText("🎤 Voice Note: " + filename + fileSize);
+                    h.tvText.setText("🎤 Voice Note: " + cleanFilename + fileSize);
+                    h.tvText.setTag("🎤 Voice Note: " + cleanFilename + fileSize);
+                    h.itemView.setOnClickListener(v -> playAudio(v.getContext(), localFile, h.tvText, cleanFilename + fileSize));
+                }
+
+                // Render dynamic memory-safe image/video thumbnail card
+                if (h.ivImage != null) {
+                    if ((rawText.startsWith("[IMAGE]:") || rawText.startsWith("[VIDEO]:")) && localFile.exists()) {
+                        h.ivImage.setVisibility(View.VISIBLE);
+                        Bitmap thumb = getThumbnail(localFile, 200, 200);
+                        if (thumb != null) {
+                            h.ivImage.setImageBitmap(thumb);
+                        } else {
+                            h.ivImage.setImageResource(android.R.drawable.ic_menu_gallery);
+                        }
+                        h.ivImage.setOnClickListener(v -> viewImage(v.getContext(), localFile));
+                    } else {
+                        h.ivImage.setVisibility(View.GONE);
+                    }
                 }
             } else {
                 h.tvText.setText(rawText);
+                if (h.ivImage != null) {
+                    h.ivImage.setVisibility(View.GONE);
+                }
             }
             h.tvTime.setText(formattedTime);
         } else if (holder instanceof ReceivedViewHolder) {
             ReceivedViewHolder h = (ReceivedViewHolder) holder;
             if (isAttachment) {
                 final String finalFilename = filename;
+                h.itemView.setOnClickListener(null); // Clear previous item click
                 h.ivSave.setVisibility(View.VISIBLE);
                 h.ivSave.setOnClickListener(v -> saveReceivedFileToPublic(v.getContext(), finalFilename));
 
                 if (rawText.startsWith("[FILE]:")) {
-                    h.tvText.setText("📁 Document: " + filename + fileSize);
+                    h.tvText.setText("📁 Document: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[IMAGE]:")) {
-                    h.tvText.setText("📷 Image: " + filename + fileSize);
+                    h.tvText.setText("📷 Image: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[VIDEO]:")) {
-                    h.tvText.setText("🎥 Video: " + filename + fileSize);
+                    h.tvText.setText("🎥 Video: " + cleanFilename + fileSize);
                 } else if (rawText.startsWith("[AUDIO]:")) {
-                    h.tvText.setText("🎤 Voice Note: " + filename + fileSize);
+                    h.tvText.setText("🎤 Voice Note: " + cleanFilename + fileSize);
+                    h.tvText.setTag("🎤 Voice Note: " + cleanFilename + fileSize);
+                    h.itemView.setOnClickListener(v -> playAudio(v.getContext(), localFile, h.tvText, cleanFilename + fileSize));
+                }
+
+                // Render dynamic memory-safe image/video thumbnail card
+                if (h.ivImage != null) {
+                    if ((rawText.startsWith("[IMAGE]:") || rawText.startsWith("[VIDEO]:")) && localFile.exists()) {
+                        h.ivImage.setVisibility(View.VISIBLE);
+                        Bitmap thumb = getThumbnail(localFile, 200, 200);
+                        if (thumb != null) {
+                            h.ivImage.setImageBitmap(thumb);
+                        } else {
+                            h.ivImage.setImageResource(android.R.drawable.ic_menu_gallery);
+                        }
+                        h.ivImage.setOnClickListener(v -> viewImage(v.getContext(), localFile));
+                    } else {
+                        h.ivImage.setVisibility(View.GONE);
+                    }
                 }
             } else {
                 h.ivSave.setVisibility(View.GONE);
                 h.tvText.setText(rawText);
+                if (h.ivImage != null) {
+                    h.ivImage.setVisibility(View.GONE);
+                }
             }
             h.tvTime.setText(formattedTime);
         }
@@ -130,6 +189,171 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             showContextMenu(v, msg, position);
             return true;
         });
+    }
+
+    private String getCleanFileName(String rawName) {
+        if (rawName == null) return "Attachment";
+        try {
+            // Truncate voice note UUID trail (e.g. voice_note_1130005974066978416.wav -> voice_note_11.wav)
+            if (rawName.startsWith("voice_note_")) {
+                return rawName.replaceAll("(?<=voice_note_\\d{2})\\d+", "");
+            }
+            // Truncate camera capture UUID trail (e.g. JPEG_20260618_033645_788281448479624591.jpg -> JPEG_20260618_033645.jpg)
+            if (rawName.startsWith("JPEG_") && rawName.length() > 30) {
+                int secondUnder = rawName.indexOf('_', 5); // index past "JPEG_"
+                int thirdUnder = rawName.indexOf('_', secondUnder + 1);
+                if (thirdUnder != -1) {
+                    int dotIdx = rawName.lastIndexOf('.');
+                    String ext = dotIdx != -1 ? rawName.substring(dotIdx) : "";
+                    return rawName.substring(0, thirdUnder) + ext;
+                }
+            }
+            // Truncate WA duplicate markers (e.g. filename(1).jpg -> filename.jpg)
+            if (rawName.contains("-WA") || rawName.contains("(")) {
+                return rawName.replaceAll("\\(\\d+\\)", "");
+            }
+        } catch (Exception e) {
+            WifeLogger.log("ChatAdapter", "Failed to clean filename string: " + e.getMessage());
+        }
+        return rawName;
+    }
+
+    private File getLocalFile(String filename) {
+        String ext = "";
+        int idx = filename.lastIndexOf('.');
+        if (idx > 0) {
+            ext = filename.substring(idx + 1).toLowerCase(Locale.US);
+        }
+
+        String subFolder;
+        switch (ext) {
+            case "mp3":
+            case "emv":
+            case "wav":
+            case "ogg":
+            case "m4a":
+            case "aac":
+                subFolder = "music";
+                break;
+            case "jpg":
+            case "jpeg":
+            case "png":
+            case "gif":
+            case "bmp":
+            case "webp":
+                subFolder = "images";
+                break;
+            case "mp4":
+            case "mkv":
+            case "avi":
+            case "mov":
+            case "3gp":
+            case "webm":
+                subFolder = "videos";
+                break;
+            case "pdf":
+            case "txt":
+            case "doc":
+            case "docx":
+            case "xls":
+            case "xlsx":
+            case "ppt":
+            case "pptx":
+                subFolder = "document";
+                break;
+            default:
+                subFolder = "misc";
+                break;
+        }
+        File rootDir = new File(Environment.getExternalStorageDirectory(), "wife shared");
+        return new File(new File(rootDir, subFolder), filename);
+    }
+
+    private Bitmap getThumbnail(File file, int targetWidth, int targetHeight) {
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            
+            int srcWidth = options.outWidth;
+            int srcHeight = options.outHeight;
+            int inSampleSize = 1;
+            
+            if (srcHeight > targetHeight || srcWidth > targetWidth) {
+                final int halfHeight = srcHeight / 2;
+                final int halfWidth = srcWidth / 2;
+                while ((halfHeight / inSampleSize) >= targetHeight && (halfWidth / inSampleSize) >= targetWidth) {
+                    inSampleSize *= 2;
+                }
+            }
+            
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = inSampleSize;
+            return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        } catch (Exception e) {
+            WifeLogger.log("ChatAdapter", "Failed generating layout bitmap preview: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void playAudio(Context context, File audioFile, TextView statusView, String originalLabel) {
+        if (mediaPlayer != null) {
+            stopAudio();
+            if (currentlyPlayingPath != null && currentlyPlayingPath.equals(audioFile.getAbsolutePath())) {
+                return; // Re-tapping active playing file cancels playback cleanly
+            }
+        }
+
+        try {
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(audioFile.getAbsolutePath());
+            mediaPlayer.prepare();
+            mediaPlayer.setOnCompletionListener(mp -> stopAudio());
+            mediaPlayer.start();
+            
+            currentlyPlayingPath = audioFile.getAbsolutePath();
+            currentlyPlayingTextView = statusView;
+            statusView.setText("🔊 Playing... " + originalLabel);
+            
+            Toast.makeText(context, "Playing audio note...", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            WifeLogger.log("ChatAdapter", "Failed playing audio voice note: " + e.getMessage());
+            Toast.makeText(context, "Playback failed.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopAudio() {
+        if (mediaPlayer != null) {
+            try {
+                if (mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+                mediaPlayer.release();
+            } catch (Exception ignored) {}
+            mediaPlayer = null;
+        }
+        if (currentlyPlayingTextView != null) {
+            currentlyPlayingTextView.setText(currentlyPlayingTextView.getTag() != null ? currentlyPlayingTextView.getTag().toString() : "🎤 Voice Note");
+            currentlyPlayingTextView = null;
+        }
+        currentlyPlayingPath = null;
+    }
+
+    private void viewImage(Context context, File imageFile) {
+        try {
+            Uri fileUri = FileProvider.getUriForFile(
+                    context,
+                    context.getPackageName() + ".fileprovider",
+                    imageFile
+            );
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(fileUri, "image/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            WifeLogger.log("ChatAdapter", "Failed launching photo system viewer: " + e.getMessage());
+            Toast.makeText(context, "No compatible image viewer found.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void saveReceivedFileToPublic(Context context, String filename) {
@@ -307,11 +531,13 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static class SentViewHolder extends RecyclerView.ViewHolder {
         TextView tvText;
         TextView tvTime;
+        ImageView ivImage; // Dynamic square photo/video preview block
 
         public SentViewHolder(@NonNull View itemView) {
             super(itemView);
             tvText = itemView.findViewById(R.id.tvMessageText);
             tvTime = itemView.findViewById(R.id.tvMessageTime);
+            ivImage = itemView.findViewById(R.id.ivMessageImage);
         }
     }
 
@@ -319,12 +545,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         TextView tvText;
         TextView tvTime;
         ImageView ivSave; // Tiny save icon for received files
+        ImageView ivImage; // Dynamic square photo/video preview block
 
         public ReceivedViewHolder(@NonNull View itemView) {
             super(itemView);
             tvText = itemView.findViewById(R.id.tvMessageText);
             tvTime = itemView.findViewById(R.id.tvMessageTime);
             ivSave = itemView.findViewById(R.id.ivSaveAttachment);
+            ivImage = itemView.findViewById(R.id.ivMessageImage);
         }
     }
 }
