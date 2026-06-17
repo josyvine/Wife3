@@ -11,6 +11,9 @@ public class ChatManager {
 
     public interface MessageListener {
         void onMessageReceived(MessageEntity message);
+        
+        // Callback interface method to handle real-time unsend deletions
+        void onMessageUnsent(long targetTimestamp);
     }
 
     public static ChatManager getInstance(Context context) {
@@ -41,6 +44,13 @@ public class ChatManager {
     public synchronized void notifyMessageReceived(MessageEntity message) {
         for (MessageListener listener : listeners) {
             listener.onMessageReceived(message);
+        }
+    }
+
+    // Synchronized dispatcher to broadcast incoming unsend signals to active observers
+    public synchronized void notifyMessageUnsent(long targetTimestamp) {
+        for (MessageListener listener : listeners) {
+            listener.onMessageUnsent(targetTimestamp);
         }
     }
 
