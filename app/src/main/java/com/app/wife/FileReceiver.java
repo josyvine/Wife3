@@ -1,6 +1,7 @@
 package com.wife.app;
 
 import android.content.Context;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -8,14 +9,14 @@ import android.util.Log;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class FileReceiver implements Runnable {
     private static final String TAG = "FileReceiver";
@@ -52,11 +53,19 @@ public class FileReceiver implements Runnable {
     public void run() {
         try {
             InputStream is = socket.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+
+            // 1. Read metadata stream byte-by-byte up to '\n' to prevent buffering pollution
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            int b;
+            while ((b = is.read()) != -1) {
+                if (b == '\n') {
+                    break;
+                }
+                baos.write(b);
+            }
             
-            // 1. Read first line which contains file metadata JSON tag
-            String metaLine = reader.readLine();
-            if (metaLine == null) {
+            String metaLine = baos.toString("UTF-8");
+            if (metaLine.isEmpty()) {
                 throw new Exception("Socket stream ended too soon, no file meta available.");
             }
             
@@ -65,41 +74,11 @@ public class FileReceiver implements Runnable {
             final long size = meta.get("size").getAsLong();
             Log.d(TAG, "Incoming file: " + filename + " of size: " + size);
 
-            // 2. Prepare file destination path
-            File outputDir = new File(context.getExternalFilesDir(null), "WifeReceived");
-            if (!outputDir.exists()) {
-                outputDir.mkdirs();
-            }
+            // 2. Resolve target directories based on extension
+            File outputDir = getTargetDirectory(filename);
             File fileDest = new File(outputDir, filename);
             
-            // 3. Write data to destination file
-            try (FileOutputStream fos = new FileOutputStream(fileDest)) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                long totalBytesReceived = 0;
-                
-                // Read directly from the raw InputStream after reading the first line (since reader reads a line)
-                // Wait! Since we wrapped the input stream in a BufferedReader, some bytes from the file stream 
-                // might already be in the reader's buffer. To prevent file corruption, we can avoid standard BufferedReader 
-                // for the binary part, OR parse the JSON differently by reading character by character until 
-                // '\n', then reading the remaining bytes. 
-                // Wait, reading character by character up to newline is perfect! Let's do that:
-                // Since `metaLine` is already read, we can find out if there are any remaining characters.
-                // But wait! Senders send metadata followed by '\n' then binary. 
-                // What is the most standard way to read a mixed string/binary socket?
-                // Yes, read bytes until '\n', parse as string, and then stream the rest!
-                // Let's modify reader logic:
-                // We can read byte by byte until we find 10 ('\n'), then convert those bytes to UTF-8 String.
-                // Standard Socket streams don't mix buffers!
-                // Let's see: how many bytes did we read for meta?
-                // Let's write a safe parser that reads byte-by-byte up to '\n':
-            } catch (Exception e) {
-                throw e;
-            }
-
-            // Let's refine the binary stream parsing to be bulletproof.
-            // Since we used BufferedReader, we can read char by char, but that might read ahead of binary.
-            // Let's implement a clean parser:
+            // 3. Receive the raw binary payload directly from stream
             receiveFileStream(is, filename, size, fileDest);
 
         } catch (Exception e) {
@@ -110,6 +89,62 @@ public class FileReceiver implements Runnable {
                 if (socket != null && !socket.isClosed()) socket.close();
             } catch (Exception e) { e.printStackTrace(); }
         }
+    }
+
+    private File getTargetDirectory(String filename) {
+        File rootDir = new File(Environment.getExternalStorageDirectory(), "wife shared");
+        String ext = "";
+        int idx = filename.lastIndexOf('.');
+        if (idx > 0) {
+            ext = filename.substring(idx + 1).toLowerCase(Locale.US);
+        }
+
+        String subFolder;
+        switch (ext) {
+            case "mp3":
+            case "emv":
+            case "wav":
+            case "ogg":
+            case "m4a":
+            case "aac":
+                subFolder = "music";
+                break;
+            case "jpg":
+            case "jpeg":
+            case "png":
+            case "gif":
+            case "bmp":
+            case "webp":
+                subFolder = "images";
+                break;
+            case "mp4":
+            case "mkv":
+            case "avi":
+            case "mov":
+            case "3gp":
+            case "webm":
+                subFolder = "videos";
+                break;
+            case "pdf":
+            case "txt":
+            case "doc":
+            case "docx":
+            case "xls":
+            case "xlsx":
+            case "ppt":
+            case "pptx":
+                subFolder = "document";
+                break;
+            default:
+                subFolder = "misc";
+                break;
+        }
+
+        File targetDir = new File(rootDir, subFolder);
+        if (!targetDir.exists()) {
+            targetDir.mkdirs();
+        }
+        return targetDir;
     }
 
     private void receiveFileStream(InputStream is, final String filename, final long fileSize, File fileDest) throws Exception {
