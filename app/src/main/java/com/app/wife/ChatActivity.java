@@ -4,7 +4,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -12,14 +17,23 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.wife.app.databinding.ActivityChatBinding;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity implements ChatManager.MessageListener {
@@ -31,6 +45,41 @@ public class ChatActivity extends AppCompatActivity implements ChatManager.Messa
     private final List<MessageEntity> messagesList = new ArrayList<>();
     private RoomDatabaseManager db;
     private String selfId;
+
+    // Multimedia Pickers & Capture launch handlers
+    private Uri tempCameraUri;
+
+    private final ActivityResultLauncher<String> filePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.GetContent(),
+            uri -> {
+                if (uri != null) {
+                    sendAttachment(uri, "[FILE]");
+                }
+            }
+    );
+
+    private final ActivityResultLauncher<Uri> takePictureLauncher = registerForActivityResult(
+            new ActivityResultContracts.TakePicture(),
+            success -> {
+                if (success && tempCameraUri != null) {
+                    sendAttachment(tempCameraUri, "[IMAGE]");
+                }
+            }
+    );
+
+    private final ActivityResultLauncher<Uri> captureVideoLauncher = registerForActivityResult(
+            new ActivityResultContracts.CaptureVideo(),
+            success -> {
+                if (success && tempCameraUri != null) {
+                    sendAttachment(tempCameraUri, "[VIDEO]");
+                }
+            }
+    );
+
+    // Audio Voice Note Recording Variables
+    private MediaRecorder mediaRecorder;
+    private File voiceNoteFile;
+    private boolean isRecordingVoice = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,21 +164,155 @@ public class ChatActivity extends AppCompatActivity implements ChatManager.Messa
                 binding.etChatMessage.setText("");
             } else {
                 WifeLogger.log(TAG, "User triggered offline voice recording action.");
-                Toast.makeText(this, "Voice recording interface coming soon.", Toast.LENGTH_SHORT).show();
+                toggleVoiceRecording();
             }
         });
 
-        // Standard attachment button click log
+        // File attachment button picker integration
         binding.btnAttachFile.setOnClickListener(v -> {
-            WifeLogger.log(TAG, "User tapped attachment paperclip button. Launching transfer pipeline.");
-            Toast.makeText(this, "Select 'Transfer Files' from the home menu to share files.", Toast.LENGTH_LONG).show();
+            WifeLogger.log(TAG, "User tapped attachment paperclip button. Launching file manager picker.");
+            filePickerLauncher.launch("*/*");
         });
 
-        // Standard camera button click log
+        // Camera button option menu integration
         binding.btnCameraIcon.setOnClickListener(v -> {
-            WifeLogger.log(TAG, "User tapped camera button. Launching video calling wizard.");
-            Toast.makeText(this, "Select 'Video Session' from the home menu to start a camera stream.", Toast.LENGTH_LONG).show();
+            WifeLogger.log(TAG, "User tapped camera button. Launching photo/video options dialog.");
+            showCameraOptions();
         });
+    }
+
+    private void showCameraOptions() {
+        String[] options = {"Take Photo", "Record Video"};
+        new AlertDialog.Builder(this)
+                .setTitle("Camera Options")
+                .setItems(options, (dialog, which) -> {
+                    try {
+                        File tempFile = createTempMediaFile(which == 0 ? ".jpg" : ".mp4");
+                        tempCameraUri = FileProvider.getUriForFile(
+                                this,
+                                getApplicationContext().getPackageName() + ".fileprovider",
+                                tempFile
+                        );
+                        if (which == 0) {
+                            takePictureLauncher.launch(tempCameraUri);
+                        } else {
+                            captureVideoLauncher.launch(tempCameraUri);
+                        }
+                    } catch (Exception e) {
+                        WifeLogger.log(TAG, "Error launching camera: " + e.getMessage(), e);
+                        Toast.makeText(this, "Failed to launch camera.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .show();
+    }
+
+    private File createTempMediaFile(String suffix) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String fileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        if (storageDir == null) {
+            storageDir = getCacheDir();
+        }
+        return File.createTempFile(fileName, suffix, storageDir);
+    }
+
+    private void toggleVoiceRecording() {
+        if (!isRecordingVoice) {
+            startVoiceRecording();
+        } else {
+            stopVoiceRecording();
+        }
+    }
+
+    private void startVoiceRecording() {
+        try {
+            voiceNoteFile = File.createTempFile("voice_note_", ".mp4", getCacheDir());
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setOutputFile(voiceNoteFile.getAbsolutePath());
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+
+            isRecordingVoice = true;
+            binding.ivSendVoiceIcon.setImageResource(android.R.drawable.ic_media_pause);
+            binding.etChatMessage.setHint("Recording voice note...");
+            binding.etChatMessage.setEnabled(false);
+            Toast.makeText(this, "Recording voice note...", Toast.LENGTH_SHORT).show();
+            WifeLogger.log(TAG, "Voice note recording started: " + voiceNoteFile.getAbsolutePath());
+        } catch (Exception e) {
+            WifeLogger.log(TAG, "Failed starting voice note recording: " + e.getMessage(), e);
+            Toast.makeText(this, "Microphone recording failed.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void stopVoiceRecording() {
+        if (mediaRecorder != null) {
+            try {
+                mediaRecorder.stop();
+                mediaRecorder.release();
+            } catch (Exception e) {
+                WifeLogger.log(TAG, "Error stopping MediaRecorder: " + e.getMessage());
+            }
+            mediaRecorder = null;
+        }
+        isRecordingVoice = false;
+        binding.ivSendVoiceIcon.setImageResource(R.drawable.mic_24px);
+        binding.etChatMessage.setHint("Message");
+        binding.etChatMessage.setEnabled(true);
+
+        if (voiceNoteFile != null && voiceNoteFile.exists() && voiceNoteFile.length() > 0) {
+            WifeLogger.log(TAG, "Voice note recorded successfully. Sending file...");
+            sendAttachment(Uri.fromFile(voiceNoteFile), "[AUDIO]");
+        }
+    }
+
+    private void sendAttachment(Uri uri, String typePrefix) {
+        String filename = "Attachment";
+        long size = 0;
+        try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                int sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (nameIdx != -1) filename = cursor.getString(nameIdx);
+                if (sizeIdx != -1) size = cursor.getLong(sizeIdx);
+            }
+        } catch (Exception e) {
+            WifeLogger.log(TAG, "Error resolving attachment uri metadata: " + e.getMessage());
+        }
+
+        if (filename == null || filename.equals("Attachment")) {
+            filename = uri.getLastPathSegment();
+        }
+        if (filename == null) {
+            filename = "file_" + System.currentTimeMillis();
+        }
+
+        final String finalFilename = filename;
+        final long finalSize = size;
+
+        // 1. Asynchronously transfer raw binary data across custom file socket channel on port 8900
+        FileSender.getInstance(this).sendFile(uri, finalFilename, finalSize, new FileSender.FileTransferListener() {
+            @Override
+            public void onProgress(int percent) {
+                // Background streaming progress tracked silently
+            }
+
+            @Override
+            public void onComplete(String path) {
+                WifeLogger.log(TAG, "Attachment payload bytes streamed successfully to receiver: " + path);
+            }
+
+            @Override
+            public void onError(String error) {
+                WifeLogger.log(TAG, "Attachment payload bytes stream failed: " + error);
+            }
+        });
+
+        // 2. Submit formatted signaling layout payload message to update local + remote adapters
+        String attachmentPayload = typePrefix + ":" + finalFilename + "|" + finalSize + "|" + uri.toString();
+        MessageSender.getInstance(this).sendMessage(attachmentPayload);
     }
 
     private void setupEmojiPanel() {
