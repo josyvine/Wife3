@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/editorial_background">
 
+    <!-- Top Toolbar -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbarChat"
         android:layout_width="match_parent"
@@ -14,6 +15,7 @@
         app:titleTextColor="@color/editorial_primary_dark"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Chat History List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChatHistory"
         android:layout_width="match_parent"
@@ -21,35 +23,150 @@
         app:layout_constraintTop_toBottomOf="@id/toolbarChat"
         app:layout_constraintBottom_toTopOf="@id/layoutChatInput" />
 
-    <LinearLayout
+    <!-- Input Bar Container (WhatsApp-Style Layout) -->
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/layoutChatInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:padding="8dp"
+        android:background="@android:color/transparent"
+        app:layout_constraintBottom_toTopOf="@id/layoutEmojiPanel">
+
+        <!-- Rounded Input Bubble (White Card) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardInputBubble"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="0dp"
+            app:cardBackgroundColor="@color/editorial_surface"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/cardSendVoiceContainer"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="4dp">
+
+                <!-- Extreme Left: Emoji/Sticker Trigger Button -->
+                <ImageView
+                    android:id="@+id/btnEmojiSticker"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginStart="6dp"
+                    android:scaleType="center"
+                    android:src="@drawable/sticker_add_24px"
+                    android:contentDescription="Select Emoji"
+                    app:tint="@color/editorial_text_secondary"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <!-- Middle: Expandable Multi-Line Text Editor -->
+                <EditText
+                    android:id="@+id/etChatMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="38dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="80dp"
+                    android:hint="Message"
+                    android:background="@android:color/transparent"
+                    android:inputType="textCapSentences|textMultiLine"
+                    android:maxLines="6"
+                    android:minLines="1"
+                    android:scrollbars="vertical"
+                    android:textColor="@color/editorial_text_primary"
+                    android:textColorHint="@color/editorial_text_secondary"
+                    android:textSize="15sp"
+                    app:layout_constraintStart_toEndOf="@id/btnEmojiSticker"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <!-- Inside Right: Paperclip File Attachment Icon -->
+                <ImageView
+                    android:id="@+id/btnAttachFile"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="42dp"
+                    android:scaleType="center"
+                    android:src="@drawable/attach_file_24px"
+                    android:contentDescription="Attach File"
+                    app:tint="@color/editorial_text_secondary"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <!-- Inside Extreme Right: Camera Icon (Hidden on Typing) -->
+                <ImageView
+                    android:id="@+id/btnCameraIcon"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_marginEnd="6dp"
+                    android:scaleType="center"
+                    android:src="@drawable/photo_camera_24px"
+                    android:contentDescription="Camera Preview"
+                    app:tint="@color/editorial_text_secondary"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Right Side: Circular Microphone / Send Icon Button (Floating Card) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardSendVoiceContainer"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="1dp"
+            app:strokeWidth="0dp"
+            app:cardBackgroundColor="@color/editorial_accent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <ImageView
+                android:id="@+id/ivSendVoiceIcon"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="center"
+                android:src="@drawable/mic_24px"
+                android:contentDescription="Voice Action"
+                app:tint="#FFFFFF" />
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Hidden Bottom Offline Emoji Selection Panel (WhatsApp Style) -->
+    <LinearLayout
+        android:id="@+id/layoutEmojiPanel"
+        android:layout_width="match_parent"
+        android:layout_height="260dp"
+        android:orientation="vertical"
         android:background="@color/editorial_surface"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <EditText
-            android:id="@+id/etChatMessage"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:hint="Type secure offline message..."
-            android:background="@android:color/transparent"
-            android:paddingHorizontal="14dp"
-            android:inputType="textShortMessage"
-            android:textColor="@color/editorial_text_primary"
-            android:textSize="14sp" />
+        <!-- Horizontal Scrollable Category Bar -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvEmojiCategories"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:background="@color/editorial_background" />
 
-        <Button
-            android:id="@+id/btnSendChatMessage"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:backgroundTint="@color/editorial_accent"
-            android:text="Send"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold" />
+        <!-- Grid Layout Emoji Presenter -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvEmojiGrid"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="6dp"
+            android:clipToPadding="false" />
 
     </LinearLayout>
 
