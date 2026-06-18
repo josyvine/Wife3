@@ -19,7 +19,8 @@ import java.util.List;
 
 public class FileTransferActivity extends AppCompatActivity implements 
         FileSender.FileTransferListener, 
-        FileReceiver.FileReceiveListener {
+        FileReceiver.FileReceiveListener,
+        FileAdapter.OnFileDeleteListener {
 
     private ActivityFileTransferBinding binding;
     private FileAdapter adapter;
@@ -58,7 +59,7 @@ public class FileTransferActivity extends AppCompatActivity implements
     }
 
     private void setupRecyclerView() {
-        adapter = new FileAdapter(historyList);
+        adapter = new FileAdapter(historyList, this);
         binding.rvFileHistory.setLayoutManager(new LinearLayoutManager(this));
         binding.rvFileHistory.setAdapter(adapter);
     }
@@ -136,6 +137,35 @@ public class FileTransferActivity extends AppCompatActivity implements
             binding.layoutTransferProgress.setVisibility(View.GONE);
             loadHistory();
         });
+    }
+
+    // Callback invoked when delete button is tapped inside RecyclerView row item
+    @Override
+    public void onFileDelete(FileEntity file, int position) {
+        WifeLogger.log("FileTransferActivity", "User requested deletion of file log entity: " + file.getFilename() + " at index: " + position);
+        new Thread(() -> {
+            try {
+                // 1. Delete entity record from SQLite database using the DAO
+                db.fileDao().deleteById(file.getId());
+                WifeLogger.log("FileTransferActivity", "Successfully deleted file transfer entry from Room Database.");
+
+                // 2. Refresh active list elements on Main UI Thread safely
+                runOnUiThread(() -> {
+                    try {
+                        if (position < historyList.size()) {
+                            historyList.remove(position);
+                            adapter.notifyItemRemoved(position);
+                            adapter.notifyItemRangeChanged(position, historyList.size());
+                            Toast.makeText(this, "File transfer entry removed.", Toast.LENGTH_SHORT).show();
+                        }
+                    } catch (Exception e) {
+                        WifeLogger.log("FileTransferActivity", "Failed updating active adapters during UI update: " + e.getMessage());
+                    }
+                });
+            } catch (Exception e) {
+                WifeLogger.log("FileTransferActivity", "Error executing file transfer log deletion background thread: " + e.getMessage());
+            }
+        }).start();
     }
 
     @Override
