@@ -33,6 +33,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
             android:text="abc.pdf"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -40,7 +41,7 @@
             android:ellipsize="middle"
             android:singleLine="true"
             app:layout_constraintStart_toEndOf="@id/ivFileIcon"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/btnDeleteFile"
             app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
@@ -60,11 +61,27 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
+            android:layout_marginEnd="8dp"
             android:text="2026-06-11 14:02"
             android:textSize="11sp"
             android:textColor="@color/editorial_text_secondary"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/btnDeleteFile"
             app:layout_constraintTop_toBottomOf="@id/tvFileName"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Delete item from local history logs button -->
+        <ImageView
+            android:id="@+id/btnDeleteFile"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_marginEnd="4dp"
+            android:padding="4dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/delete_24px"
+            android:contentDescription="Delete File Entry"
+            app:tint="#F44336"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
