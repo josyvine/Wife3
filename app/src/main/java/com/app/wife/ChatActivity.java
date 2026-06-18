@@ -285,15 +285,37 @@ public class ChatActivity extends AppCompatActivity implements ChatManager.Messa
     private void sendAttachment(Uri uri, String typePrefix) {
         String filename = "Attachment";
         long size = 0;
-        try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                int nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-                int sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE);
-                if (nameIdx != -1) filename = cursor.getString(nameIdx);
-                if (sizeIdx != -1) size = cursor.getLong(sizeIdx);
+
+        if (uri != null) {
+            String scheme = uri.getScheme();
+            if ("file".equalsIgnoreCase(scheme) || scheme == null) {
+                // Safely query absolute files directly avoiding content database restrictions
+                try {
+                    File file = new File(uri.getPath());
+                    if (file.exists()) {
+                        filename = file.getName();
+                        size = file.length();
+                        WifeLogger.log(TAG, "Resolved local file URI directly. Filename: " + filename + " | Size: " + size + " bytes");
+                    } else {
+                        WifeLogger.log(TAG, "Target local file was not discovered at path: " + uri.getPath());
+                    }
+                } catch (Exception e) {
+                    WifeLogger.log(TAG, "Error resolving direct local file path length: " + e.getMessage(), e);
+                }
+            } else {
+                // Fall back to cursor query for standard content:// provider URIs
+                try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        int nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                        int sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                        if (nameIdx != -1) filename = cursor.getString(nameIdx);
+                        if (sizeIdx != -1) size = cursor.getLong(sizeIdx);
+                        WifeLogger.log(TAG, "Resolved provider content URI via cursor query. Filename: " + filename + " | Size: " + size + " bytes");
+                    }
+                } catch (Exception e) {
+                    WifeLogger.log(TAG, "Error resolving attachment uri database metadata: " + e.getMessage());
+                }
             }
-        } catch (Exception e) {
-            WifeLogger.log(TAG, "Error resolving attachment uri metadata: " + e.getMessage());
         }
 
         if (filename == null || filename.equals("Attachment")) {
